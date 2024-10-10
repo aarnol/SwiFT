@@ -36,6 +36,10 @@ class fMRIDataModule(pl.LightningDataModule):
             return ABCD
         elif self.hparams.dataset_name == 'UKB':
             return UKB
+        elif self.hparams.dataset_name == 'REST':
+            return S1200
+
+
         else:
             raise NotImplementedError
 
@@ -44,7 +48,7 @@ class fMRIDataModule(pl.LightningDataModule):
         subj_idx = np.array([str(x[1]) for x in subj_list])
         S = np.unique([x[1] for x in subj_list])
         # print(S)
-        print('unique subjects:',len(S))  
+        
         train_idx = np.where(np.in1d(subj_idx, train_names))[0].tolist()
         val_idx = np.where(np.in1d(subj_idx, val_names))[0].tolist()
         test_idx = np.where(np.in1d(subj_idx, test_names))[0].tolist()
@@ -58,14 +62,43 @@ class fMRIDataModule(pl.LightningDataModule):
                     f.write(str(subj_name) + "\n")
                     
     def determine_split_randomly(self, S):
+        
         S = list(S.keys())
+        
+        if self.hparams.downstream_task == 'nback':
+            S = list(set([s[:-2] for s in S]))
+    
         S_train = int(len(S) * self.hparams.train_split)
+       
         S_val = int(len(S) * self.hparams.val_split)
+      
         S_train = np.random.choice(S, S_train, replace=False)
         remaining = np.setdiff1d(S, S_train) # np.setdiff1d(np.arange(S), S_train)
+        
         S_val = np.random.choice(remaining, S_val, replace=False)
         S_test = np.setdiff1d(S, np.concatenate([S_train, S_val])) # np.setdiff1d(np.arange(S), np.concatenate([S_train, S_val]))
         # train_idx, val_idx, test_idx = self.convert_subject_list_to_idx_list(S_train, S_val, S_test, self.subject_list)
+        
+        #Ensures that the subjects are separated between the three sets
+        if self.hparams.downstream_task == 'nback':
+            full_train = []
+            full_test = []
+            full_val = [] 
+            for train_sub in S_train:
+                for i in range(0,2):
+                    for j in range(1,2):
+                        full_train.append(f"{train_sub}{j}{i}")
+            for test_sub in S_test:
+                for i in range(0,2):
+                    for j in range(1,2):
+                        full_test.append(f"{test_sub}{j}{i}")
+            for val_sub in S_val:
+                for i in range(0,2):
+                    for j in range(1,2):
+                        full_val.append(f"{val_sub}{j}{i}")
+            S_train = np.array(full_train)
+            S_test = np.array(full_test)
+            S_val = np.array(full_val )         
         self.save_split({"train_subjects": S_train, "val_subjects": S_val, "test_subjects": S_test})
         return S_train, S_val, S_test
     
@@ -78,6 +111,7 @@ class fMRIDataModule(pl.LightningDataModule):
         train_names = subject_order[train_index + 1 : val_index]
         val_names = subject_order[val_index + 1 : test_index]
         test_names = subject_order[test_index + 1 :]
+    
         return train_names, val_names, test_names
 
     def prepare_data(self):
@@ -91,12 +125,14 @@ class fMRIDataModule(pl.LightningDataModule):
         final_dict = dict()
         if self.hparams.dataset_name == "S1200":
             subject_list = os.listdir(img_root)
-            meta_data = pd.read_csv(os.path.join(self.hparams.image_path, "metadata", "HCP_1200_gender.csv"))
-            meta_data_residual = pd.read_csv(os.path.join(self.hparams.image_path, "metadata", "HCP_1200_precise_age.csv"))
-            meta_data_all = pd.read_csv(os.path.join(self.hparams.image_path, "metadata", "HCP_1200_all.csv"))
+            # meta_data = pd.read_csv(os.path.join(self.hparams.image_path, "metadata", "HCP_1200_gender.csv"))
+            # meta_data_residual = pd.read_csv(os.path.join(self.hparams.image_path, "metadata", "HCP_1200_precise_age.csv"))
+            # meta_data_all = pd.read_csv(os.path.join(self.hparams.image_path, "metadata", "HCP_1200_all.csv"))
             if self.hparams.downstream_task == 'sex': task_name = 'Gender'
             elif self.hparams.downstream_task == 'age': task_name = 'age'
             elif self.hparams.downstream_task == 'int_total': task_name = 'CogTotalComp_AgeAdj'
+            elif self.hparams.downstream_task == 'nback': task_name = 'Working_memory'
+                
             else: raise NotImplementedError()
 
             if self.hparams.downstream_task == 'sex':
@@ -107,9 +143,19 @@ class fMRIDataModule(pl.LightningDataModule):
                 meta_task = meta_task.rename(columns={'subject': 'Subject'})
             elif self.hparams.downstream_task == 'int_total':
                 meta_task = meta_data[['Subject',task_name,'Gender']].dropna()  
-            
+            elif self.hparams.downstream_task == 'nback':
+                path = "/scratch/alpine/alar6830/7.WM_LR_MNI_to_TRs_znorm/img/" 
+                filenames = [int(f) for f in os.listdir(path)]
+              
+                
+                meta_task = pd.DataFrame({'Subject' : filenames, 'Working_memory':[0 if f%2 == 0 else 1 for f in filenames ]})
+               
+                
+                
             for subject in subject_list:
+                
                 if int(subject) in meta_task['Subject'].values:
+                    
                     if self.hparams.downstream_task == 'sex':
                         target = meta_task[meta_task["Subject"]==int(subject)][task_name].values[0]
                         target = 1 if target == "M" else 0
@@ -122,7 +168,15 @@ class fMRIDataModule(pl.LightningDataModule):
                         target = meta_task[meta_task["Subject"]==int(subject)][task_name].values[0]
                         sex = meta_task[meta_task["Subject"]==int(subject)]["Gender"].values[0]
                         sex = 1 if sex == "M" else 0
+                    elif self.hparams.downstream_task == 'nback':
+                        target = meta_task[meta_task["Subject"]==int(subject)][task_name].values[0]
+                        sex = target
                     final_dict[subject]=[sex,target]
+                
+                
+                        
+                    
+       
             
         elif self.hparams.dataset_name == "ABCD":
             subject_list = [subj[4:] for subj in os.listdir(img_root)]
@@ -184,9 +238,13 @@ class fMRIDataModule(pl.LightningDataModule):
                 "dtype":'float16'}
         
         subject_dict = self.make_subject_dict()
+        
+        
         if os.path.exists(self.split_file_path):
+            
             train_names, val_names, test_names = self.load_split()
         else:
+            
             train_names, val_names, test_names = self.determine_split_randomly(subject_dict)
         
         if self.hparams.bad_subj_path:
@@ -203,7 +261,7 @@ class fMRIDataModule(pl.LightningDataModule):
         train_dict = {key: subject_dict[key] for key in train_names if key in subject_dict}
         val_dict = {key: subject_dict[key] for key in val_names if key in subject_dict}
         test_dict = {key: subject_dict[key] for key in test_names if key in subject_dict}
-        
+        print(f'valdict {val_dict}')
         self.train_dataset = Dataset(**params,subject_dict=train_dict,use_augmentations=False, train=True)
         # load train mean/std of target labels to val/test dataloader
         self.val_dataset = Dataset(**params,subject_dict=val_dict,use_augmentations=False,train=False) 
@@ -214,6 +272,7 @@ class fMRIDataModule(pl.LightningDataModule):
         print("number of test_subj:", len(test_dict))
         print("length of train_idx:", len(self.train_dataset.data))
         print("length of val_idx:", len(self.val_dataset.data))  
+        print(self.val_dataset.data)
         print("length of test_idx:", len(self.test_dataset.data))
         
         # DistributedSampler is internally called in pl.Trainer

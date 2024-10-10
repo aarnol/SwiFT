@@ -88,7 +88,7 @@ def cli_main():
         if exp_id == None:
             setattr(args, "id", run.fetch()['sys']['id'])
 
-        logger = NeptuneLogger(run=run, log_model_checkpoints=False)
+        logger = NeptuneLogger(run=run, log_model_checkpoints=True)
         dirpath = os.path.join(args.default_root_dir, logger.version)
     else:
         raise Exception("Wrong logger name.")
@@ -143,6 +143,7 @@ def cli_main():
             args,
             logger=logger,
             check_val_every_n_epoch=1,
+            log_every_n_steps=1,
             #val_check_interval=100 if not args.scalability_check else None,
             callbacks=callbacks
         )

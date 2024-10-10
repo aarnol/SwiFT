@@ -4,10 +4,13 @@
 #SBATCH --nodelist node1
 #SBATCH -c 32
 #SBATCH --ntasks-per-node=1
+#SBATCH --output=sample-%j.out
 
-source /usr/anaconda3/etc/profile.d/conda.sh
+
+module purge
+module load anaconda
 conda activate py39
-pip install monai
 
-python preprocessing-ABCD-rest.py
-
+echo "== This is the scripting step! =="
+python /projects/alar6830/SwiFT/project/module/utils/data_preprocess_and_load/preprocessing.py
+echo "== Finished =="

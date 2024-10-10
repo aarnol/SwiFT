@@ -91,9 +91,11 @@ class S1200(BaseDataset):
         super().__init__(**kwargs)
 
     def _set_data(self, root, subject_dict):
+        
         data = []
         img_root = os.path.join(root, 'img')
         for i, subject in enumerate(subject_dict):
+            
             sex,target = subject_dict[subject]
             subject_path = os.path.join(img_root, subject)
             num_frames = len(os.listdir(subject_path)) - 2 # voxel mean & std
@@ -111,18 +113,20 @@ class S1200(BaseDataset):
     def __getitem__(self, index):
         _, subject, subject_path, start_frame, sequence_length, num_frames, target, sex = self.data[index]
         # target = self.label_dict[target] if isinstance(target, str) else target.float()
-
+        
         if self.contrastive:
+            
             y, rand_y = self.load_sequence(subject_path, start_frame, sequence_length)
 
             background_value = y.flatten()[0]
+            
             y = y.permute(0,4,1,2,3)
-            y = torch.nn.functional.pad(y, (8, 7, 2, 1, 11, 10), value=background_value) # adjust this padding level according to your data
+            y = torch.nn.functional.pad(y, (2, 3, 0, 1, 2, 3), value=background_value) # adjust this padding level according to your data
             y = y.permute(0,2,3,4,1)
 
             background_value = rand_y.flatten()[0]
             rand_y = rand_y.permute(0,4,1,2,3)
-            rand_y = torch.nn.functional.pad(rand_y, (8, 7, 2, 1, 11, 10), value=background_value) # adjust this padding level according to your data
+            rand_y = torch.nn.functional.pad(rand_y, (2, 3, 0, 1, 2, 3), value=background_value) # adjust this padding level according to your data
             rand_y = rand_y.permute(0,2,3,4,1)
 
             return {
@@ -135,10 +139,11 @@ class S1200(BaseDataset):
 
         else:
             y = self.load_sequence(subject_path, start_frame, sequence_length, num_frames)
-
+           
             background_value = y.flatten()[0]
             y = y.permute(0,4,1,2,3)
-            y = torch.nn.functional.pad(y, (8, 7, 2, 1, 11, 10), value=background_value) # adjust this padding level according to your data
+           
+            y = torch.nn.functional.pad(y, (2, 3, 0, 1, 2, 3), value=background_value) # adjust this padding level according to your data
             y = y.permute(0,2,3,4,1)
 
             return {
