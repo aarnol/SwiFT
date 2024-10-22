@@ -1,0 +1,4 @@
+  File "/projects/alar6830/SwiFT/download_WM.py", line 66
+    !{aws_command}
+    ^
+SyntaxError: invalid syntax
