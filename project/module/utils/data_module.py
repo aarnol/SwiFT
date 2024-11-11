@@ -148,7 +148,7 @@ class fMRIDataModule(pl.LightningDataModule):
                 path = img_root 
                 filenames = [int(f) for f in os.listdir(path)]
               
-                
+                # print([[f, f%2] for f in filenames])
                 meta_task = pd.DataFrame({'Subject' : filenames, 'Working_memory':[0 if f%2 == 0 else 1 for f in filenames ]})
                
                 

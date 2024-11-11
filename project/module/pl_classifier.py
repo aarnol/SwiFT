@@ -323,9 +323,9 @@ class LitClassifier(pl.LightningModule):
             total_out_valid = torch.cat(out_valid_list, dim=0)
             total_out_test = torch.cat(out_test_list, dim=0)
 
-            # save model predictions if it is needed for future analysis
-            # self._save_predictions(subj_valid,total_out_valid,mode="valid")
-            # self._save_predictions(subj_test,total_out_test, mode="test") 
+            #save    model predictions if it is needed for future analysis
+            self._save_predictions(subj_valid,total_out_valid,mode="valid")
+            self._save_predictions(subj_test,total_out_test, mode="test") 
                 
             # evaluate 
             self._evaluate_metrics(subj_valid, total_out_valid, mode="valid")
