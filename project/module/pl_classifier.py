@@ -36,6 +36,7 @@ class LitClassifier(pl.LightningModule):
        
         # you should define target_values at the Dataset classes
         target_values = data_module.train_dataset.target_values
+        print(f"target values")
         if self.hparams.label_scaling_method == 'standardization':
             scaler = StandardScaler()
             normalized_target_values = scaler.fit_transform(target_values)
